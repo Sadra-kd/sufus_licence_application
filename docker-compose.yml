@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db/sufuss
+      - HOST=0.0.0.0
+      - PORT=8000
+      - SSL_ENABLED=true
+      - SSL_CERT_FILE=./app/certificates/server.crt
+      - SSL_KEY_FILE=./app/certificates/server.key
+      - ADMIN_HOST=0.0.0.0
+      - ADMIN_PORT=8001
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+    volumes:
+      - ./app/certificates:/app/app/certificates
+    depends_on:
+      - db
+    restart: unless-stopped
+    command: >
+      sh -c "
+        python -m app.db.init_db &&
+        (uvicorn app.main:app --host 0.0.0.0 --port 8000 --ssl-keyfile ./app/certificates/server.key --ssl-certfile ./app/certificates/server.crt &) &&
+        uvicorn app.admin_server:app --host 0.0.0.0 --port 8001
+      "
+
+  db:
+    image: postgres:14-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sufuss
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data: 
